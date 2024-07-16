@@ -186,6 +186,38 @@ def detail_user():
 
     return jsonify(data), 200
 
+@app.route('/api/verify_email', methods=['POST'])
+def verify_email():
+    data = request.json
+    code = data.get('code')
+
+    if not code:
+        return jsonify({"message": "Kode verifikasi tidak disediakan"}), 400
+
+    try:
+        # Decode the token (assuming token is used as verification code)
+        decoded_token = jwt.decode(code, app.config['SECRET_KEY'], algorithms=["HS256"])
+        user_email = decoded_token.get('user_email')
+
+        if not user_email:
+            return jsonify({"message": "Token tidak valid"}), 400
+
+        user = mongo.db.users.find_one({"email": user_email})
+
+        if not user:
+            return jsonify({"message": "Pengguna tidak ditemukan"}), 404
+
+        # Set user as verified
+        User.set_verified(user['_id'])
+
+        return jsonify({"message": "Verifikasi berhasil"}), 200
+
+    except jwt.ExpiredSignatureError:
+        return jsonify({"message": "Token telah kedaluwarsa"}), 400
+    except jwt.InvalidTokenError:
+        return jsonify({"message": "Token tidak valid"}), 400
+    except Exception as e:
+        return jsonify({"message": f"Kesalahan terjadi: {str(e)}"}), 500
 
 @app.route('/api/login', methods=['POST'])
 def login():
